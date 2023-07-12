@@ -1,0 +1,22 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "description": "Contains the tests for the project.",
+  "scripts": {
+    "start:backend": "(cd ../backend && npm run start)",
+    "start:frontend": "(cd ../frontend/web-app && npm run start)",
+    "cy:open": "cypress open --e2e",
+    "cy:run": "cypress run --e2e",
+    "test": "start-server-and-test start:backend http://0.0.0.0:4566 start:frontend http://localhost:3000 cy:open",
+    "ci:test": "start-server-and-test start:backend http://0.0.0.0:4566 start:frontend http://localhost:3000 cy:run",
+    "posttest": "(cd ../backend && npm run localstack:stop"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@badeball/cypress-cucumber-preprocessor": "^18.0.1",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.0",
+    "aws-sdk": "^2.1407.0",
+    "cypress": "^12.14.0",
+    "start-server-and-test": "^2.0.0"
+  }
+}

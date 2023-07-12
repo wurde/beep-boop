@@ -1,0 +1,706 @@
+# Notes:
+#
+# - The use of 'Fn::Sub:' is not supported by the auto-generated OpenAPI client.
+#   It threw errors like: "Error invoking uri integration for API Gateway
+#   'dict' object has no attribute 'startswith'. Once I replaced it with fully
+#   formed ARNs I was able to pull data from DynamoDB.
+
+# Required.
+# The version number of the OpenAPI Specification used.
+# https://swagger.io/specification
+openapi: 3.1.0
+
+# Required.
+# Provides metadata about the API.
+info:
+  # Required.
+  # The title of the API.
+  title: Main API
+  # Required
+  # The contact information for the exposed API.
+  version: 0.1.0
+  # The license information for the exposed API.
+  license:
+    identifier: MIT
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+# Connectivity information to a target server.
+servers:
+- url: http://localhost:3000
+  description: Development server
+
+- url: https://api.example.com
+  description: Production server
+
+# The available paths and operations for the API.
+#
+# You can use the following AWS variables in OpenAPI definitions. API Gateway
+# resolves the variables when the API is imported. To specify a variable, use
+# ${variable-name}.
+#
+# - AWS::AccountId The account ID that imports the API—for example, 123456789012.
+#
+# - AWS::Partition The partition in which the API is imported.
+#     For standard AWS Regions, the partition is aws.
+#
+# - AWS::Region The Region in which the API is imported—for example, us-east-2.
+#
+# https://docs.aws.amazon.com/apigateway/latest/developerguide/import-api-aws-variables.html
+paths:
+  /events:
+    post:
+      operationId: logEvent
+      summary: Log an event
+      requestBody:
+        required: true
+        content:
+          application/cloudevents+json:
+            schema:
+              $ref: '#/components/schemas/CloudEvent'
+      responses:
+        202:
+          description: Event logged
+        401:
+          description: Unauthorized
+        500:
+          description: Internal server error
+      # Specifies details of the backend integration used for this method.
+      # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-integration.html
+      x-amazon-apigateway-integration:
+        # The type of integration with the specified backend. Valid values are:
+        #
+        # - http or http_proxy, for integration with an HTTP backend.
+        #
+        # - aws_proxy, for integration with AWS Lambda functions.
+        #
+        # - aws, for integration with AWS Lambda functions or other AWS
+        #        services, such as Amazon DynamoDB, Amazon Simple Notification
+        #        Service, or Amazon Simple Queue Service.
+        #
+        # - mock, for integration with API Gateway without invoking any backend.
+        type: aws
+        # The endpoint URI of the backend. For integrations of the aws type,
+        # this is an ARN value. For the HTTP integration, this is the URL of
+        # the HTTP endpoint including the https or http scheme.
+        #
+        # Specifies that this API Gateway integration is meant to perform
+        # the PutRecord operation in Kinesis.
+        #
+        # Writes a single data record into an Amazon Kinesis data stream. Call
+        # PutRecord to send data into the stream for real-time ingestion and
+        # subsequent processing, one record at a time. Each shard can support
+        # writes up to 1,000 records per second, up to a maximum data write
+        # total of 1 MiB per second.
+        #
+        # https://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html
+        uri: "arn:aws:apigateway:us-east-1:kinesis:action/PutRecord"
+        httpMethod: POST
+        # The ARN of an IAM role that grants Amazon API Gateway permission
+        # to call the target.
+        #
+        # - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-integration-credentials.html
+        # - https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html
+        credentials: "arn:aws:iam::000000000000:role/service-role/APIGatewayRole"
+        # Mapping templates for a request payload of specified MIME types.
+        #
+        # In API Gateway, an API's method request can take a payload in a
+        # different format from the integration request payload. Similarly,
+        # the backend may return an integration response payload different
+        # from the method response payload. You can map URL path parameters,
+        # URL query string parameters, HTTP headers, and the request body
+        # across API Gateway using mapping templates.
+        #
+        # NOTE You don't have to define any model to create a mapping template,
+        # but you must define a model in order to have API Gateway to generate
+        # a SDK or to turn on request body validation for your API.
+        #
+        # - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-integration-requestTemplates.html
+        # - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        requestTemplates:
+          # StreamName
+          #
+          #   The name of the stream to put the data record into.
+          #
+          # Data
+          #
+          #   The data blob to put into the record, which is base64-encoded
+          #   when the blob is serialized. When the data blob (the payload
+          #   before base64-encoding) is added to the partition key size, the
+          #   total size must not exceed the maximum record size (1 MiB).
+          #
+          # PartitionKey
+          #
+          #   Determines which shard in the stream the data record is assigned to.
+          #   Partition keys are Unicode strings with a maximum length limit of 256
+          #   characters for each key. Amazon Kinesis Data Streams uses the
+          #   partition key as input to a hash function that maps the partition key
+          #   and associated data to a specific shard. Specifically, an MD5 hash
+          #   function is used to map partition keys to 128-bit integer values and
+          #   to map associated data records to shards. As a result of this hashing
+          #   mechanism, all data records with the same partition key map to the
+          #   same shard within the stream.
+          #
+          #   Selecting an appropriate partition key for your Kinesis Data Stream
+          #   depends on the nature of the data and how you want to consume it:
+          #
+          #   - Uniform Distribution: If you want to distribute data evenly across
+          #     all shards, consider using a partition key that has a large number
+          #     of unique values. For example, if you're processing clickstream
+          #     data, you might choose to use the user's unique ID or session ID as
+          #     the partition key. This would distribute the data fairly evenly
+          #     across all available shards.
+          #
+          #   - Ordered Data: If your use case requires ordered data, you might
+          #     choose a partition key that groups related data together. For
+          #     example, if you are processing financial transactions and need to
+          #     maintain the order of transactions for each customer, you might
+          #     choose to use the customer's ID as the partition key. Remember, the
+          #     order of records is maintained within each shard but not across
+          #     shards.
+          #
+          #   - High Volume Data: For cases where certain partition keys are
+          #     associated with high-volume data, consider partition key sharding.
+          #     Partition key sharding is the practice of appending a random number
+          #     or a string at the end of your partition key to increase the number
+          #     of potential hash values, which can help to distribute the data more
+          #     evenly across shards. This could help avoid the "hot shard" issue
+          #     where one shard is receiving more data than it can handle.
+          #
+          #   - Dynamic Partition Key: Another strategy could be to use a dynamic
+          #     partition key. For example, you could append the current timestamp
+          #     to your partition key to make it unique for each record. This could
+          #     also help to evenly distribute data across all shards.
+          #
+          #   Remember, it's crucial to monitor the throughput of your shards and
+          #   adjust your partition key strategy as necessary to ensure you're
+          #   making the most effective use of your resources.
+          #
+          #   Remember that with Kinesis, a given shard can only support up to 1000
+          #   PUT records per second, so if you expect a higher write rate, ensure
+          #   that your partition key design allows for distributing the writes
+          #   across multiple shards.
+          application/json: |
+            {
+              "StreamName": "main",
+              "Data": "$util.base64Encode($input.body)",
+              "PartitionKey": "partition-1"
+            }
+        # Defines the method's responses and specifies desired parameter
+        # mappings or payload mappings from integration responses to method
+        # responses.
+        #
+        # x-amazon-apigateway-integration.responses object
+        # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-integration-responses.html
+        responses:
+          default:
+            statusCode: 202
+        # This determines the behavior of the API Gateway when the backend HTTP
+        # endpoint doesn't return a response. It can take one of the following
+        # values:
+        #
+        # - WHEN_NO_MATCH: API Gateway passes the request body through to the
+        #   integration backend (the integration request body or request
+        #   parameters) only when the requested content type matches an
+        #   existing requestTemplates defined in the
+        #   x-amazon-apigateway-integration object.
+        #
+        # - WHEN_NO_TEMPLATES: API Gateway passes the request body through to
+        #   the integration backend (the integration request body or request
+        #   parameters) only when no requestTemplates are defined in the
+        #   x-amazon-apigateway-integration object.
+        #
+        # - NEVER: API Gateway rejects the API request with a 400 HTTP response
+        #   code and an error message saying that the requested payload
+        #   couldn't be transformed.
+        passthroughBehavior: when_no_match
+
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      responses:
+        200:
+          description: Users found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        401:
+          description: Unauthorized
+        500:
+          description: Internal server error
+      x-amazon-apigateway-integration:
+        type: aws
+        # The Scan operation returns one or more items and item attributes by
+        # accessing every item in a table or a secondary index. To have
+        # DynamoDB return fewer items, you can provide a FilterExpression
+        # operation.
+        #
+        # If the total number of scanned items exceeds the maximum dataset
+        # size limit of 1 MB, the scan stops and results are returned to the
+        # user as a LastEvaluatedKey value to continue the scan in a
+        # subsequent operation. The results also include the number of items
+        # exceeding the limit. A scan can result in no table data meeting the
+        # filter criteria.
+        #
+        #   TableName - The name of the table containing the requested items.
+        #
+        #   Select - The attributes to be returned in the result.
+        #
+        # https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html
+        uri: "arn:aws:apigateway:us-east-1:dynamodb:action/Scan"
+        httpMethod: POST
+        credentials: "arn:aws:iam::000000000000:role/service-role/APIGatewayRole"
+        passthroughBehavior: when_no_templates
+        requestTemplates:
+          application/json: |
+            {
+              "TableName": "Users",
+              "Select": "ALL_ATTRIBUTES"
+            }
+
+  /users/{id}:
+    get:
+      operationId: getUserById
+      summary: Retrieve user details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the user to retrieve.
+          schema:
+            type: string
+      responses:
+        200:
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        401:
+          description: Unauthorized
+        404:
+          description: User not found
+        500:
+          description: Internal server error
+      x-amazon-apigateway-integration:
+        type: aws
+        # The GetItem operation returns a set of attributes for the item with
+        # the given primary key. If there is no matching item, GetItem does
+        # not return any data and there will be no Item element in the
+        # response.
+        #
+        #   TableName - The name of the table containing the requested item.
+        #
+        #   Key - A map of attribute names to AttributeValue objects.
+        #         Only the primary key attributes are required.
+        #
+        #   ProjectionExpression - A string that identifies one or more
+        #                          attributes to retrieve from the table.
+        #
+        # https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
+        uri: "arn:aws:apigateway:us-east-1:dynamodb:action/GetItem"
+        httpMethod: POST
+        credentials: "arn:aws:iam::000000000000:role/service-role/APIGatewayRole"
+        passthroughBehavior: when_no_templates
+        requestTemplates:
+          application/json: |
+            {
+              "TableName": "Users",
+              "Key": {
+                "id": {
+                  "S": "$input.params('id')"
+                }
+              }
+            }
+        responses:
+          200:
+            statusCode: 200
+            # the $inputRoot variable represents the root object in the
+            # original JSON data. Directives begin with the # symbol.
+            #
+            # https://velocity.apache.org/engine/devel/vtl-reference.html
+            responseTemplates:
+              application/json: |
+                #set($inputRoot = $input.path('$'))
+                {
+                  "id": "$inputRoot.Item.id.S",
+                  "email": "$inputRoot.Item.email.S",
+                  "registeredAt": "$inputRoot.Item.registeredAt.S",
+                  "total": "$inputRoot.Item.total.N",
+                  "equationData": "$inputRoot.Item.equationData.S"
+                }
+          400:
+            statusCode: 400
+            contentHandling: CONVERT_TO_TEXT
+            responseTemplates:
+              application/json: |
+                {
+                  "state": "error",
+                  "message": "Invalid ID supplied"
+                }
+          404:
+            statusCode: 404
+            contentHandling: CONVERT_TO_TEXT
+            responseTemplates:
+              application/json: |
+                {
+                  "state": "error",
+                  "message": "User not found"
+                }
+          500:
+            statusCode: 500
+            contentHandling: CONVERT_TO_TEXT
+            responseTemplates:
+              application/json: |
+                {
+                  "state": "error",
+                  "message": "Internal server error"
+                }
+          default:
+            statusCode: 200
+
+# An element to hold various schemas for the document.
+components:
+  # All security schemes used by the API must be defined here.
+  #
+  # OpenAPI uses the term security scheme for authentication and authorization
+  # schemes. OpenAPI 3.0 lets you describe APIs protected using the following
+  # security schemes:
+  #  - HTTP auth schemes (they use the Authorization header): Basic and Bearer
+  #  - API keys in headers, query string or cookies
+  #  - OAuth 2
+  #  - OpenID Connect Discovery
+  #
+  # We choose to use Bearer authentication via Cognito User Pools. Also called
+  # token authentication this is an HTTP authentication scheme that involves
+  # security tokens called bearer tokens. The name “Bearer authentication” can
+  # be understood as “give access to the bearer of this token.” The bearer
+  # token is a cryptic string, usually generated by the server in response to
+  # a login request. The client must send this token in the Authorization
+  # header when making requests to protected resources.
+  #
+  # To use an Amazon Cognito user pool with your API, you must first create an
+  # authorizer of the COGNITO_USER_POOLS type and then configure an API method
+  # to use that authorizer. After the API is deployed, the client must first
+  # sign the user in to the user pool, obtain an identity or access token for
+  # the user, and then call the API method with one of the tokens, which are
+  # typically set to the request's Authorization header. The API call succeeds
+  # only if the required token is supplied and the supplied token is valid,
+  # otherwise, the client isn't authorized to make the call because the client
+  # did not have credentials that could be authorized.
+  #
+  # The identity token is used to authorize API calls based on identity claims
+  # of the signed-in user. The access token is used to authorize API calls
+  # based on the custom scopes of specified access-protected resources.
+  #
+  # To create and configure an Amazon Cognito user pool for your API:
+  #   1. Create an Amazon Cognito user pool.
+  #   2. Create an API Gateway authorizer with the chosen user pool.
+  #   3. Enable the authorizer on all or select API methods.
+  #
+  # To call any API method with an Amazon Cognito user pool authorizer:
+  #   1. Sign in to the user pool and obtain an identity or access token.
+  #   2. Call the API method with the token in the Authorization header.
+  #
+  # - https://swagger.io/docs/specification/authentication
+  # - https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.1.md#security-scheme-object
+  # - https://swagger.io/docs/specification/authentication
+  # - https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-integrate-with-cognito.html
+  # - https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-enable-cognito-user-pool.html
+  securitySchemes:
+    CognitoAuthorizer:
+      # Required.
+      # The type of the security scheme. Valid values are "apiKey", "http",
+      # "oauth2", "openIdConnect".
+      #
+      # Some APIs use API keys for authorization. An API key is a token that
+      # a client provides when making API calls. API keys are supposed to be
+      # a secret that only the client and server know. Like Basic
+      # authentication, API key-based authentication is only considered secure
+      # if used together with other security mechanisms such as HTTPS/SSL.
+      #
+      # https://swagger.io/docs/specification/authentication/api-keys
+      type: apiKey
+      # Required.
+      # Name of the header, query or cookie parameter to be used.
+      name: Authorization
+      # Required.
+      # Location of the API key. Valid values are "query", "header" or "cookie".
+      in: header
+      # For REST APIs, this extension can be used to define a custom type of
+      # a Lambda authorizer. In this case, the value is free-form.
+      # This extension applies to the apiKey type security scheme.
+      #
+      # https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-authtype.html
+      x-amazon-apigateway-authtype: COGNITO_USER_POOLS
+      # As an alternative to using IAM roles and policies or Lambda authorizers
+      # (formerly known as custom authorizers), you can use an Amazon Cognito
+      # user pool to control who can access your API in Amazon API Gateway.
+      #
+      # To use an Amazon Cognito user pool with your API, you must first
+      # create an authorizer of the COGNITO_USER_POOLS type and then configure
+      # an API method to use that authorizer.
+      #
+      # After the API is deployed, the client must first sign the user in to
+      # the user pool, obtain an identity or access token for the user, and
+      # then call the API method with one of the tokens, which are typically
+      # set to the request's Authorization header.
+      #
+      # The identity token is used to authorize API calls based on identity
+      # claims of the signed-in user. The access token is used to authorize
+      # API calls based on the custom scopes of specified access-protected
+      # resources.
+      #
+      # NOTE When using Cognito User Pools as the authorizer, the authentication
+      # and authorization are handled within the Cognito User Pool itself, and
+      # the API Gateway integration with Cognito User Pools handles the
+      # authentication and authorization automatically. In this case, you don't
+      # need to specify the authorizer_credentials property.
+      #
+      # - https://docs.aws.amazon.com/apigateway/latest/api/API_Authorizer.html
+      # - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-authorizer.html
+      # - https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-integrate-with-cognito.html
+      # - https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-enable-cognito-user-pool.html
+      # - https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-auth-using-authorization-header.html
+      x-amazon-apigateway-authorizer:
+        # Required.
+        # Type of the authorizer. Possible values are TOKEN for a Lambda function
+        # using a single authorization token submitted in a custom header, REQUEST
+        # for a Lambda function using incoming request parameters, or
+        # COGNITO_USER_POOLS for using an Amazon Cognito user pool.
+        type: COGNITO_USER_POOLS
+        # Required.
+        # A list of the Amazon Cognito user pool ARNs.
+        providerARNs:
+          - "arn:aws:cognito-idp:us-east-1:000000000000:userpool/us-east-1_ed80f08dd71c494eb302b2c368cf9646"
+        # The TTL in seconds of cached authorizer results. If it equals 0,
+        # authorization caching is disabled. If it is greater than 0, API
+        # Gateway will cache authorizer responses. If this field is not set,
+        # the default value is 300. The maximum value is 3600, or 1 hour.
+        #authorizerResultTtlInSeconds: 3600
+        authorizerResultTtlInSeconds: 60
+  schemas:
+    CloudEvent:
+      type: object
+      required:
+        - specversion
+        - source
+        - type
+        - id
+        - time
+        - data
+      properties:
+        specversion:
+          type: string
+          default: "1.0"
+          description: The version of the CloudEvents specification used in the event.
+        source:
+          type: string
+          description: A URI describing the event producer.
+        type:
+          type: string
+          description: The type of the occurrence which has happened.
+        id:
+          type: string
+          description: A value describing the type of event related to the originating occurrence.
+        datacontenttype:
+          type: string
+          default: "application/json"
+        dataschema:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+          description: A timestamp of when the occurrence happened.
+        data:
+          type: object
+          description: The event payload.
+    User:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          description: The ID of the user.
+        email:
+          type: string
+          description: The email address of the user.
+        registeredAt:
+          type: string
+          format: date-time
+          description: The date and time the user registered.
+        total:
+          type: integer
+          format: int32
+          description: The total.
+        equationData:
+          type: string
+          description: The equation data composed by the user.
+
+# TODO debug. Uncomment. Responses are not being customized. Local Stack parity?
+#
+# Use the x-amazon-apigateway-gateway-responses extension at the API root
+# level to customize gateway responses in OpenAPI.
+#
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-gateway-responses.html
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-gateway-responses-in-swagger.html
+# - https://docs.aws.amazon.com/apigateway/latest/api/API_GatewayResponse.html
+#x-amazon-apigateway-gateway-responses:
+#  UNAUTHORIZED:
+#    # An HTTP status code for the gateway response.
+#    statusCode: 401
+#    # Specifies the GatewayResponse parameters, namely the header parameters.
+#    # The parameter values can take any incoming request parameter value or a
+#    # static custom value.
+#    responseParameters:
+#      gatewayresponse.header.x-testing: 'this is a test'
+#    # Specifies the mapping templates of the gateway response. The templates
+#    # are not processed by the VTL engine.
+#    responseTemplates:
+#      application/json: "{\"message\": \"Unauthorized, Big OOF\" }"
+
+# TODO implement. Low priority.
+#
+# When using Amazon API Gateway, you can make use of Amazon API Gateway
+# Extensions to the OpenAPI specification. The x-amazon-apigateway-cors
+# extension allows you to enable CORS support and set various CORS options.
+#
+# CORS is typically required to build web applications that access APIs hosted
+# on a different domain or origin. You can enable CORS to allow requests to
+# your API from a web application hosted on a different domain. For example,
+# if your API is hosted on https://{api_id}.execute-api.{region}.amazonaws.com/
+# and you want to call your API from a web application hosted on example.com,
+# your API must support CORS.
+#
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-cors-configuration.html
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html
+# - https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+#x-amazon-apigateway-cors:
+#  allowOrigins: ['http://localhost:3000', 'https://example.com']
+#  allowCredentials: true
+#  allowMethods: [GET, POST, OPTIONS]
+#  allowHeaders: ['x-apigateway-header', 'x-amz-date', 'content-type']
+#  exposeHeaders: ['x-apigateway-header', 'x-amz-date', 'content-type']
+#  maxAge: 3600
+
+# TODO implement. Low priority.
+#
+# Defines the supported request validators for the containing API as a map
+# between a validator name and the associated request validation rules.
+#
+# https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-request-validators.html
+#x-amazon-apigateway-request-validators:
+#  basic:
+#    validateRequestBody: true
+#    validateRequestParameters: true
+# Specifies an API-level request validator.
+#
+# https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-request-validator.html
+#x-amazon-apigateway-request-validator: basic
+
+# TODO implement. Low priority.
+#
+# You can configure throttling for your APIs to help protect them from
+# being overwhelmed by too many requests. Throttles are applied on a
+# best-effort basis and should be thought of as targets rather than
+# guaranteed request ceilings.
+#
+# API Gateway throttles requests to your API using the token bucket
+# algorithm, where a token counts for a request. Specifically, API
+# Gateway examines the rate and a burst of request submissions against
+# all APIs in your account, per Region. In the token bucket algorithm,
+# a burst can allow pre-defined overrun of those limits, but other
+# factors can also cause limits to be overrun in some cases.
+#
+# When request submissions exceed the steady-state request rate and
+# burst limits, API Gateway begins to throttle requests. Clients may
+# receive 429 Too Many Requests error responses at this point. Upon
+# catching such exceptions, the client can resubmit the failed requests
+# in a way that is rate limiting.
+#
+# By default, API Gateway limits the steady-state requests per second
+# (RPS) across all APIs within an AWS account, per Region. It also
+# limits the burst (that is, the maximum bucket size) across all APIs
+# within an AWS account, per Region. In API Gateway, the burst limit
+# represents the target maximum number of concurrent request submissions
+# that API Gateway will fulfill before returning 429 Too Many Requests
+# error responses.
+#
+# To request an increase of account-level throttling limits per Region,
+# contact the AWS Support Center. Note that these limits can't be higher
+# than the AWS throttling limits.
+#
+# You can set route-level throttling to override the account-level
+# request throttling limits for a specific stage or for individual
+# routes in your API. The default route throttling limits can't exceed
+# account-level rate limits.
+#
+# https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-throttling.html
+#
+# Throttling burst limit. Default: -1 (throttling disabled).
+#throttling_burst_limit = 5000
+# Throttling rate limit. Default: -1 (throttling disabled).
+#throttling_rate_limit = 10000
+
+# TODO implement. Low priority.
+#
+# Specifies a resource policy for a REST API.
+#
+# Amazon API Gateway resource policies are JSON policy documents that you
+# attach to an API to control whether a specified principal (typically an IAM
+# role or group) can invoke the API. You can use API Gateway resource policies
+# to allow your API to be securely invoked by:
+#
+# - Users from a specified AWS account.
+# - Specified source IP address ranges or CIDR blocks.
+# - Specified virtual private clouds (VPCs) or VPC endpoints (in any account).
+#
+# API Gateway resource policies are different from IAM identity-based policies.
+# IAM identity-based policies are attached to IAM users, groups, or roles and
+# define what actions those identities are capable of doing on which resources.
+# API Gateway resource policies are attached to resources. You can use API
+# Gateway resource policies together with IAM policies.
+#
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/openapi-extensions-policy.html
+# - https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-resource-policies.html
+# - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_identity-vs-resource.html
+# x-amazon-apigateway-policy:
+#   Version: '2012-10-17'
+#   Statement:
+#   - Effect: Allow
+#     Principal: "*"
+#     Action: execute-api:Invoke
+#     Resource:
+#     - execute-api:/*
+#   - Effect: Deny
+#     Principal: "*"
+#     Action: execute-api:Invoke
+#     Resource:
+#     - execute-api:/*
+#     Condition:
+#       IpAddress:
+#         aws:SourceIp: 192.0.2.0/24
+
+# TODO uncomment. Implement authenticated API calls. Local Stack lacks parity
+# with AWS's API Gateway OpenAPI 3.0 integration.
+#
+# Security is described using the securitySchemes and security keywords. You
+# use 'securitySchemes' to define all security schemes your API supports, then
+# use 'security' to apply specific schemes to the whole API or individual
+# operations.
+#
+# When used on the root level, security applies the specified security schemes
+# globally to all API operations, unless overridden on the operation level.
+#
+# - https://swagger.io/specification/#security-requirement-object
+# - https://swagger.io/docs/specification/authentication
+#security:
+# - CognitoAuthorizer: []

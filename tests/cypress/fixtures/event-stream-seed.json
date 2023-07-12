@@ -1,0 +1,16 @@
+[
+  {
+    "specversion": "1.0",
+    "source": "https://example.com/register",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "type": "com.example.user.registered.2023-06-29",
+    "datacontenttype": "application/json",
+    "subject": "newUser",
+    "time": "2023-06-29T13:18:06Z",
+    "data": {
+      "email": "usedemail@example.com",
+      "password": "password123",
+      "registeredAt": "2023-06-29T13:18:06Z"
+    }
+  }
+]

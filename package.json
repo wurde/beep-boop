@@ -1,0 +1,38 @@
+{
+  "name": "beep-boop",
+  "version": "0.1.0",
+  "description": "A little adventure in modern web development.",
+  "private": true,
+  "scripts": {
+    "install:tests": "(cd ./tests && npm install)",
+    "install:backend": "(cd ./backend && npm install)",
+    "install:frontend": "(cd ./frontend/web-app && npm install)",
+    "install:all": "npm install && npm run install:tests && npm run install:backend && npm run install:frontend",
+    "api:validate": "openapi-generator-cli validate -i docs/api/openapi.yaml",
+    "api:generate": "openapi-generator-cli generate -i docs/api/openapi.yaml -g javascript -o frontend/web-app/lib/api-client",
+    "dev:backend": "cd ./backend && npm start",
+    "dev:frontend": "cd ./frontend/web-app && npm run dev",
+    "dev": "npm run dev:backend && npm run dev:frontend",
+    "test": "cd ./tests && npm run test",
+    "ci:test": "cd ./tests && npm run ci:test",
+    "prepare": "husky install",
+    "lint": "eslint **/*.{js,jsx} && prettier --check **/*.{js,jsx}",
+    "lint:fix": "eslint --fix **/*.{js,jsx} && prettier --write **/*.{js,jsx}"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.6.0",
+    "eslint": "^8.43.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-cypress": "^2.13.3",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-jsx-a11y": "^6.7.1",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.2.2",
+    "prettier": "^2.8.8"
+  }
+}

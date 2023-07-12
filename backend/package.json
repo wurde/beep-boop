@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "localstack:help": "localstack --help",
+    "localstack:config": "localstack config show",
+    "localstack:start": "docker run --name localstack_main --env-file ./.localstack/pro.env --detach --publish 4566:4566 --publish 4510-4559:4510-4559 --publish 53:53 --publish 443:443 localstack/localstack-pro",
+    "localstack:stop": "docker stop localstack_main && docker rm localstack_main",
+    "localstack:wait": "wait-on http://0.0.0.0:4566/health",
+    "terraform:init": "cd terraform && terraform init",
+    "terraform:apply": "cd terraform && terraform apply -auto-approve -var-file=./local.tfvars",
+    "terraform:update-frontend-env": "node ./utils/update-frontend-env.js",
+    "dynamodb:seed": "node ./dynamodb/seed.js",
+    "kinesis:seed": "node ./kinesis/seed.js",
+    "api:generate": "(cd .. && npm run api:generate)",
+    "start": "npm-run-all --sequential localstack:start localstack:wait terraform:init terraform:apply terraform:update-frontend-env dynamodb:seed kinesis:seed api:generate || npm run localstack:stop"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.3.1",
+    "npm-run-all": "^4.1.5",
+    "wait-on": "^7.0.1"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1413.0"
+  }
+}
